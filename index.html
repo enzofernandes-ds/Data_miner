@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mineração de texto</title>
+<style>
+:root{--navy:#132a47;--teal:#1e7396;--amber:#e8a33d;--red:#b5483a;--bg:#f1f3f7;--ink:#1b2430;--mut:#5d6b7c;--line:#d9dee6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Calibri,"Segoe UI",system-ui,sans-serif}
+h1,h2,h3{font-family:Cambria,"Noto Serif",Georgia,serif;color:var(--navy);line-height:1.2;margin:0}
+header{background:var(--navy);color:#fff;padding:44px 24px 40px}
+header h1{color:#fff;font-size:clamp(30px,5vw,48px)}
+header p{max-width:62ch;margin:12px 0 0;color:#c4d3e3;font-size:18px}
+main,.wrap{max-width:1040px;margin:0 auto}
+main{padding:0 20px 64px}
+section{margin-top:44px}
+section>h2{font-size:28px;margin-bottom:4px}
+section>p.lead{color:var(--mut);margin:0 0 18px;max-width:70ch}
+.panel{background:#fff;border:1px solid var(--line);border-radius:10px;padding:20px}
+.grid{display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+label{font-weight:600;display:block;margin-bottom:6px}
+textarea,input[type=text]{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+textarea{min-height:110px;resize:vertical}
+input[type=file]{width:100%;padding:18px;border:2px dashed var(--teal);border-radius:8px;background:#f7fafc;font:inherit}
+button{font:inherit;font-weight:600;border:0;border-radius:8px;padding:10px 18px;cursor:pointer;background:var(--teal);color:#fff}
+button.alt{background:#fff;color:var(--navy);border:1px solid var(--navy)}
+button:hover{filter:brightness(1.1)}
+:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.hint{color:var(--mut);font-size:14px}
+.err{color:var(--red);font-weight:600}
+.stats{display:flex;flex-wrap:wrap;gap:0;border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden}
+.stats div{flex:1 1 140px;padding:14px 18px;border-right:1px solid var(--line)}
+.stats b{display:block;font:700 26px Cambria,Georgia,serif;color:var(--navy)}
+.stats span{color:var(--mut);font-size:14px}
+.sum li{margin-bottom:10px}
+h3{font-size:19px;margin-bottom:12px}
+.bar{display:grid;grid-template-columns:120px 1fr 44px;align-items:center;gap:10px;margin:5px 0;font-size:15px}
+.bar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar i{display:block;height:12px;border-radius:3px;background:var(--teal)}
+.bar i.a{background:var(--amber)}
+.bar b{font-weight:600;color:var(--mut);text-align:right;font-size:13px}
+.cloud{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;justify-content:center;padding:8px 0;font-family:Cambria,Georgia,serif;font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px 12px;font-size:15px}
+.chip em{font-style:normal;color:var(--mut);margin-left:6px;font-size:13px}
+.stack{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--line)}
+.stack i{display:block}
+.legend{font-size:14px;color:var(--mut);margin:6px 0 16px}
+.steps{list-style:none;margin:0;padding:0;counter-reset:s}
+.steps>li{counter-increment:s;position:relative;padding:0 0 18px 48px;border-left:2px solid var(--line);margin-left:15px}
+.steps>li:last-child{border-color:transparent;padding-bottom:0}
+.steps>li::before{content:counter(s);position:absolute;left:-16px;top:0;width:30px;height:30px;border-radius:50%;background:var(--teal);color:#fff;font-weight:700;display:grid;place-items:center}
+.steps h4{margin:0 0 4px;font:700 17px Cambria,Georgia,serif;color:var(--navy)}
+.steps p{margin:0 0 8px;color:var(--mut);font-size:14.5px}
+.tk{display:inline-block;background:#fff;border:1px solid var(--teal);border-radius:5px;padding:0 7px;margin:0 4px 4px 0;font-size:15px}
+.tk.x{border-color:var(--line);color:#8a96a5;text-decoration:line-through}
+.res{padding:12px 0;border-bottom:1px solid var(--line)}
+.res:last-child{border:0}
+.res small{color:var(--mut)}
+mark{background:#fbe3b1;padding:0 2px;border-radius:3px}
+svg.tl{width:100%;height:110px;display:block;background:#fff;border:1px solid var(--line);border-radius:8px}
+@media(max-width:560px){.bar{grid-template-columns:90px 1fr 38px}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>Mineração de texto</h1>
+  <p>Envie documentos e veja como o texto não estruturado vira informação: termos, sentimento, entidades, resumo e busca.</p>
+</div></header>
+<main>
+
+<section>
+  <h2>Seu material</h2>
+  <p class="lead">Aceita PDF, DOCX, TXT, MD e CSV. Vários arquivos formam um corpus que é analisado em conjunto.</p>
+  <div class="panel">
+    <label for="files">Arquivos</label>
+    <input id="files" type="file" multiple accept=".pdf,.docx,.txt,.md,.csv">
+    <div style="margin-top:14px"><label for="txt">Ou cole um texto</label><textarea id="txt" placeholder="Cole aqui avaliações, e-mails, artigos…"></textarea></div>
+    <div class="row">
+      <button id="go">Analisar texto</button>
+      <button id="demo" class="alt">Carregar exemplo</button>
+      <button id="clear" class="alt">Limpar</button>
+      <span id="msg" class="hint" role="status"></span>
+    </div>
+  </div>
+</section>
+
+<div id="out" hidden>
+  <section>
+    <h2>Panorama</h2>
+    <p class="lead">O tamanho do corpus e as frases que melhor o representam (resumo extrativo: as frases cujos termos mais pesam no conjunto).</p>
+    <div class="stats" id="stats"></div>
+    <div class="panel" style="margin-top:20px"><h3>Resumo</h3><ul class="sum" id="resumo"></ul></div>
+  </section>
+
+  <section>
+    <h2>Termos</h2>
+    <p class="lead">Frequência mostra o que mais aparece. TF-IDF destaca o que é característico deste corpus, descontando palavras que aparecem em quase todas as frases.</p>
+    <div class="grid">
+      <div class="panel"><h3>Mais frequentes</h3><div id="freq"></div></div>
+      <div class="panel"><h3>Mais distintivos (TF-IDF)</h3><div id="tfidf"></div></div>
+    </div>
+    <div class="grid" style="margin-top:20px">
+      <div class="panel"><h3>Nuvem de palavras</h3><div class="cloud" id="nuvem"></div></div>
+      <div class="panel"><h3>Expressões de duas palavras</h3><div class="chips" id="bi"></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Sentimento</h2>
+    <p class="lead">Cada frase recebe uma nota entre −1 e +1 a partir de um léxico de palavras positivas e negativas, com tratamento de negação e intensidade.</p>
+    <div class="panel"><div id="sdocs"></div><h3 style="margin-top:6px">Frase a frase</h3><div class="legend">Barras para cima são positivas, para baixo negativas. Passe o mouse para ler a frase.</div><div id="serie"></div></div>
+  </section>
+
+  <section>
+    <h2>Entidades</h2>
+    <p class="lead">Nomes de organizações, lugares, pessoas, datas, valores e contatos encontrados no texto.</p>
+    <div class="panel" id="ents"></div>
+  </section>
+
+  <section>
+    <h2>Pergunte ao texto</h2>
+    <p class="lead">Busca por relevância: as frases são comparadas à sua pergunta por similaridade de cosseno entre vetores TF-IDF.</p>
+    <div class="panel">
+      <label for="q">Pergunta ou palavras-chave</label>
+      <div class="row" style="margin:0"><input id="q" type="text" style="flex:1 1 280px" placeholder="Ex.: quem reclamou da entrega?"><button id="ask">Buscar</button></div>
+      <div id="found" style="margin-top:12px"></div>
+    </div>
+  </section>
+</div>
+
+<section>
+  <h2>Passo a passo do pipeline</h2>
+  <p class="lead">Escreva uma frase e acompanhe como o computador a transforma em números antes de analisá-la.</p>
+  <div class="panel">
+    <label for="ptxt">Frase</label>
+    <div class="row" style="margin:0"><input id="ptxt" type="text" style="flex:1 1 280px" value="A Maria não gostou do atendimento da Natura em São Paulo, mas o produto é muito bom."><button id="pgo">Processar</button></div>
+    <ol class="steps" id="pipe" style="margin-top:22px"></ol>
+  </div>
+</section>
+</main>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const post=(u,b)=>fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}).then(r=>r.json());
+const bars=(rows,cls="")=>{const m=Math.max(...rows.map(r=>r[1]),1e-9);return rows.map(([w,v])=>`<div class="bar"><span title="${esc(w)}">${esc(w)}</span><i class="${cls}" style="width:${v/m*100}%"></i><b>${+(+v).toFixed(1)}</b></div>`).join("")};
+const COL={positivo:"#1e7396",neutro:"#b9c2ce",negativo:"#b5483a"};
+
+function render(d){
+  const out=$("#out");
+  if(d.erro){$("#msg").innerHTML=`<span class="err">${esc(d.erro)}</span>`;return}
+  $("#msg").textContent="";out.hidden=false;
+  const s=d.stats,st=[["documentos",s.docs],["frases",s.frases],["palavras",s.tokens],["vocabulário",s.vocabulario],["riqueza lexical",s.riqueza],["palavras por frase",s.media_frase]];
+  $("#stats").innerHTML=st.map(([k,v])=>`<div><b>${v}</b><span>${k}</span></div>`).join("");
+  $("#resumo").innerHTML=d.resumo.map(x=>`<li>${esc(x)}</li>`).join("");
+  $("#freq").innerHTML=bars(d.frequentes);
+  $("#tfidf").innerHTML=bars(d.tfidf,"a");
+  const mx=d.nuvem[0][1],mn=d.nuvem[d.nuvem.length-1][1],pal=["#132a47","#1e7396","#c98a22","#5d6b7c"];
+  $("#nuvem").innerHTML=d.nuvem.map(([w,n],i)=>`<span style="font-size:${14+(mx>mn?(n-mn)/(mx-mn):0)*30}px;color:${pal[i%4]}">${esc(w)}</span>`).join("");
+  $("#bi").innerHTML=d.bigramas.length?d.bigramas.map(([w,n])=>`<span class="chip">${esc(w)}<em>${n}</em></span>`).join(""):'<span class="hint">Nenhuma expressão repetida.</span>';
+  const sd=d.sentimento;
+  $("#sdocs").innerHTML=sd.docs.map(x=>{const t=x.positivo+x.neutro+x.negativo||1;
+    return `<div style="margin-bottom:14px"><b>${esc(x.nome)}</b> <span class="hint">nota média ${x.media>0?"+":""}${x.media}</span>
+    <div class="stack" style="margin-top:6px">${["positivo","neutro","negativo"].map(k=>`<i style="width:${x[k]/t*100}%;background:${COL[k]}" title="${k}: ${x[k]}"></i>`).join("")}</div>
+    <div class="legend" style="margin:4px 0 0">${x.positivo} positivas · ${x.neutro} neutras · ${x.negativo} negativas</div></div>`}).join("");
+  const n=sd.serie.length,w=8;
+  $("#serie").innerHTML=`<svg class="tl" viewBox="0 0 ${n*w} 100" preserveAspectRatio="none" role="img" aria-label="Sentimento por frase"><line x1="0" x2="${n*w}" y1="50" y2="50" stroke="#d9dee6"/>${sd.serie.map((p,i)=>{const h=Math.max(Math.abs(p.s)*46,1.5);return `<rect x="${i*w+1}" width="${w-2}" y="${p.s>=0?50-h:50}" height="${h}" fill="${p.s>=.2?COL.positivo:p.s<=-.2?COL.negativo:COL.neutro}"><title>${p.s>0?"+":""}${p.s} — ${esc(p.t)}</title></rect>`}).join("")}</svg>`;
+  const g={};d.entidades.forEach(e=>(g[e.tipo]=g[e.tipo]||[]).push(e));
+  $("#ents").innerHTML=Object.keys(g).length?Object.entries(g).map(([t,l])=>`<h3>${t}</h3><div class="chips" style="margin-bottom:18px">${l.map(e=>`<span class="chip">${esc(e.texto)}<em>${e.n}</em></span>`).join("")}</div>`).join(""):'<span class="hint">Nenhuma entidade encontrada.</span>';
+  $("#found").innerHTML="";
+  out.scrollIntoView({behavior:"smooth"});
+}
+
+let seq=0;
+const busy=b=>["#go","#demo","#clear"].forEach(s=>$(s).disabled=b);
+async function run(url,opts){
+  const id=++seq,ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),60000);
+  $("#msg").textContent="Analisando…";busy(true);
+  try{const d=await fetch(url,{...opts,signal:ctl.signal}).then(r=>r.json());if(id===seq)render(d)}
+  catch(e){if(id===seq)$("#msg").innerHTML='<span class="err">'+(e.name==="AbortError"?"A análise demorou demais. Tente um arquivo menor.":"Não foi possível falar com o servidor. Confirme que a janela do app.py continua aberta.")+"</span>"}
+  finally{clearTimeout(t);if(id===seq)busy(false)}
+}
+$("#go").onclick=()=>{
+  const fs=[...$("#files").files],tx=$("#txt").value;
+  if(!fs.length&&!tx.trim()){$("#msg").innerHTML='<span class="err">Envie um arquivo ou cole um texto.</span>';return}
+  const fd=new FormData();fs.forEach(f=>fd.append("files",f));fd.append("text",tx);
+  $("#files").value="";  // o arquivo não "gruda" na próxima análise
+  run("/api/analyze",{method:"POST",body:fd});
+};
+$("#txt").onkeydown=e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey))$("#go").click()};
+$("#demo").onclick=()=>{$("#files").value="";$("#txt").value="";const l=$("#url");if(l)l.value="";run("/api/sample")};
+$("#clear").onclick=()=>{seq++;busy(false);$("#files").value="";$("#txt").value="";const l=$("#url");if(l)l.value="";$("#q").value="";$("#msg").textContent="";$("#found").innerHTML="";$("#out").hidden=true;$("#txt").focus()};
+
+async function ask(){
+  const q=$("#q").value.trim();if(!q)return;
+  const r=await post("/api/search",{q});
+  const re=r.termos.length?new RegExp("("+r.termos.map(t=>t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")","gi"):null;
+  $("#found").innerHTML=r.resultados.length?r.resultados.map(x=>`<div class="res"><div>${re?esc(x.texto).replace(re,"<mark>$1</mark>"):esc(x.texto)}</div><small>${esc(x.doc)} · similaridade ${x.score}</small></div>`).join(""):'<span class="hint">Nada parecido encontrado. Tente outras palavras.</span>';
+}
+$("#ask").onclick=ask;$("#q").onkeydown=e=>{if(e.key==="Enter")ask()};
+
+let pseq=0,ptimer;
+async function pipe(){
+  const id=++pseq;
+  let r;try{r=await post("/api/pipeline",{text:$("#ptxt").value})}catch(e){if(id===pseq)$("#pipe").innerHTML='<li><p class="err">Sem resposta do servidor. Confirme que a janela do app.py continua aberta.</p></li>';return}
+  if(id!==pseq)return;
+  const tk=(a,c="")=>a.length?a.map(w=>`<span class="tk ${c}">${esc(w)}</span>`).join(""):'<span class="hint">—</span>';
+  const steps=[
+    ["Texto original","Entrada exatamente como foi escrita.",esc(r.original)],
+    ["Normalização","Tudo em minúsculas e sem pontuação, para que “Bom” e “bom” sejam a mesma palavra.",esc(r.normalizado)],
+    ["Tokenização","O texto é dividido em unidades menores: as palavras (tokens).",tk(r.tokens)],
+    ["Remoção de stopwords","Palavras muito comuns (artigos, preposições) carregam pouco significado e são riscadas.",tk(r.tokens.map(w=>w),"").replace(/<span class="tk ">(.*?)<\/span>/g,(m,w)=>r.removidas.includes(w)?`<span class="tk x">${w}</span>`:m)],
+    ["Vetorização","Cada palavra restante vira uma contagem, base para TF-IDF e para modelos de aprendizado de máquina.",r.vetor.map(([w,n])=>`<span class="tk">${esc(w)} <b>${n}</b></span>`).join("")],
+    ["Sentimento",`Nota calculada pelo léxico: <b>${r.sentimento.score>0?"+":""}${r.sentimento.score}</b> (${r.sentimento.rotulo}).`,""],
+    ["Entidades","Nomes próprios, datas e valores reconhecidos.",r.entidades.length?r.entidades.map(e=>`<span class="tk">${esc(e.texto)} <small>${e.tipo}</small></span>`).join(""):'<span class="hint">Nenhuma entidade.</span>']
+  ];
+  $("#pipe").innerHTML=steps.map(([t,d,c])=>`<li><h4>${t}</h4><p>${d}</p><div>${c}</div></li>`).join("");
+}
+$("#pgo").onclick=pipe;$("#ptxt").oninput=()=>{clearTimeout(ptimer);ptimer=setTimeout(pipe,350)};$("#ptxt").onkeydown=e=>{if(e.key==="Enter")pipe()};
+/* ===================== EXTRAS (blocos adicionais) ===================== */
+(()=>{
+const css=document.createElement("style");
+css.textContent=`.bar span,#nuvem span{cursor:pointer}.bar span:hover,#nuvem span:hover{text-decoration:underline}
+input[type=url]{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;color:var(--ink);background:#fff}
+#extras table{width:100%;border-collapse:collapse;font-size:15px}#extras th,#extras td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+#extras th{color:var(--mut);font-weight:600}details{border-top:1px solid var(--line);padding:10px 0}summary{cursor:pointer;font-weight:600;color:var(--navy)}details p{margin:8px 0 0;color:var(--mut)}`;
+document.head.appendChild(css);
+
+// Analisar link (item 11)
+const u=document.createElement("div");u.style.marginTop="14px";
+u.innerHTML=`<label for="url">Ou analise uma página da web</label><div class="row" style="margin:0"><input id="url" type="url" placeholder="https://..." style="flex:1 1 280px"><button id="gourl">Analisar link</button></div>`;
+$("#txt").parentElement.after(u);
+$("#gourl").onclick=()=>{const v=$("#url").value.trim();
+  if(!/^https?:\/\//i.test(v)){$("#msg").innerHTML='<span class="err">Cole um link completo, começando com http:// ou https://</span>';return}
+  run("/api/analyze_url",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:v})})};
+$("#url").onkeydown=e=>{if(e.key==="Enter")$("#gourl").click()};
+
+// Exportar (item 1)
+const dl=(nome,txt,tipo)=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type:tipo}));a.download=nome;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
+const relatorio=d=>`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatório de mineração de texto</title></head><body style="font:16px/1.5 Calibri,sans-serif;max-width:800px;margin:30px auto;padding:0 16px"><h1>Relatório de mineração de texto</h1><h2>Panorama</h2><ul>${Object.entries(d.stats).map(([k,v])=>`<li>${k}: <b>${v}</b></li>`).join("")}</ul><h2>Resumo</h2><ul>${d.resumo.map(x=>`<li>${esc(x)}</li>`).join("")}</ul><h2>Termos mais distintivos (TF-IDF)</h2><ol>${d.tfidf.map(([w,v])=>`<li>${esc(w)} (${v})</li>`).join("")}</ol><h2>Sentimento por documento</h2><ul>${d.sentimento.docs.map(x=>`<li>${esc(x.nome)}: média ${x.media} (${x.positivo} positivas, ${x.neutro} neutras, ${x.negativo} negativas)</li>`).join("")}</ul><h2>Entidades</h2><p>${d.entidades.map(e=>esc(e.texto)+" ("+e.tipo+")").join("; ")}</p></body></html>`;
+
+async function extras(d){
+  let x={docs:[]};try{x=await fetch("/api/extras").then(r=>r.json())}catch(e){}
+  $("#extras")?.remove();$("#kwic")?.remove();
+  const el=document.createElement("div");el.id="extras";el.className="panel";el.style.marginTop="20px";
+  el.innerHTML=`<h3>Idioma, legibilidade e leitura</h3><div style="overflow-x:auto"><table><tr><th>Documento</th><th>Idioma</th><th>Palavras</th><th>Leitura</th><th>Legibilidade (Flesch)</th><th>Tamanho médio da palavra</th></tr>${x.docs.map(r=>`<tr><td>${esc(r.nome)}</td><td>${r.idioma}</td><td>${r.palavras}</td><td>${r.minutos} min</td><td>${r.flesch} — ${r.nivel}</td><td>${r.tam_palavra} letras</td></tr>`).join("")}</table></div>
+  <div class="row"><button id="xjson" class="alt">Baixar JSON</button><button id="xhtml" class="alt">Baixar relatório HTML</button></div>`;
+  $("#resumo").closest(".panel").after(el);
+  $("#xjson").onclick=()=>dl("analise.json",JSON.stringify(d,null,2),"application/json");
+  $("#xhtml").onclick=()=>dl("relatorio.html",relatorio(d),"text/html");
+  const k=document.createElement("div");k.id="kwic";k.className="panel";k.style.marginTop="20px";
+  k.innerHTML=`<h3>Palavra no contexto</h3><span class="hint">Clique em qualquer palavra das listas ou da nuvem para ver as frases em que ela aparece.</span>`;
+  $("#nuvem").closest(".grid").after(k);
+}
+const _render=render;render=function(d){_render(d);if(!d.erro)extras(d)};
+
+// Palavra no contexto (item 2)
+document.addEventListener("click",async e=>{
+  const t=e.target.closest(".bar span,#nuvem span");if(!t||!$("#kwic"))return;
+  const w=t.textContent.trim();
+  const r=await fetch("/api/kwic?w="+encodeURIComponent(w)).then(r=>r.json()).catch(()=>null);if(!r)return;
+  const re=new RegExp("(?<![\\p{L}])("+w.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")(?![\\p{L}])","giu");
+  $("#kwic").innerHTML=`<h3>Palavra no contexto: “${esc(w)}”</h3><div class="hint">${r.total} frase(s)${r.total>15?" (mostrando 15)":""}</div>`+r.resultados.map(x=>`<div class="res">${esc(x.texto).replace(re,"<mark>$1</mark>")}<br><small>${esc(x.doc)}</small></div>`).join("");
+  $("#kwic").scrollIntoView({behavior:"smooth",block:"nearest"});
+});
+
+// Sobre o método (item 7)
+const M=[["Tokenização e normalização","O texto é convertido para minúsculas e dividido em palavras (tokens). Assim “Bom” e “bom” contam como a mesma palavra."],
+["Remoção de stopwords","Palavras muito frequentes e pouco informativas (artigos, preposições, conjunções) são descartadas para que os termos de conteúdo se destaquem."],
+["Frequência e TF-IDF","A frequência conta quantas vezes cada termo aparece. O TF-IDF multiplica essa contagem por um peso que diminui para termos presentes em muitas frases, destacando o que é característico do corpus."],
+["Expressões de duas palavras (bigramas)","Pares de palavras úteis que aparecem juntos, como “análise de sentimento”, revelam conceitos que uma palavra isolada não mostra."],
+["Resumo extrativo","Cada frase recebe uma pontuação pela soma do TF-IDF de seus termos, e as melhores são selecionadas, mantendo a ordem original. O resumo usa frases do próprio texto, sem reescrevê-las."],
+["Análise de sentimento por léxico","Palavras positivas e negativas de um dicionário somam pontos. Negações (“não”) invertem o sinal e intensificadores (“muito”) aumentam o peso. Limitação: não entende ironia nem contexto."],
+["Reconhecimento de entidades (NER)","Padrões (e-mail, link, data, valor) e sequências de palavras com inicial maiúscula identificam nomes de pessoas, organizações e lugares. É uma heurística, e modelos treinados como o spaCy são mais precisos."],
+["Busca por similaridade","Frases e pergunta viram vetores TF-IDF, e a similaridade de cosseno ordena as frases mais próximas da pergunta."],
+["Legibilidade (Flesch)","Estima a facilidade de leitura a partir do tamanho das frases e do número de sílabas por palavra, com constantes adaptadas ao português. A contagem de sílabas é aproximada."]];
+$("main").insertAdjacentHTML("beforeend",`<section><h2>Sobre o método</h2><p class="lead">Como cada resultado desta página é calculado, na ordem do pipeline apresentado nos slides.</p><div class="panel">${M.map(([t,p])=>`<details><summary>${t}</summary><p>${p}</p></details>`).join("")}</div></section>`);
+})();
+
+/* ===================== TÓPICOS (item 8) ===================== */
+(()=>{
+async function gerar(){
+  const out=$("#tp-out");out.innerHTML='<span class="hint">Calculando…</span>';
+  const r=await post("/api/topicos",{k:+$("#tp-k").value}).catch(()=>null);
+  if(!r){out.innerHTML='<span class="err">Sem resposta do servidor.</span>';return}
+  if(r.erro){out.innerHTML=`<span class="hint">${esc(r.erro)}</span>`;return}
+  out.innerHTML=`<div class="grid">${r.topicos.map(t=>`<div class="panel"><h3>Tópico ${t.topico} <span class="hint">· ${t.pct}% das frases</span></h3>${bars(t.palavras,t.topico%2?"":"a")}<p class="hint" style="margin:10px 0 0">Frase de exemplo: “${esc(t.exemplo)}”</p></div>`).join("")}</div>`;
+}
+const _r=render;
+render=function(d){_r(d);if(d.erro)return;
+  $("#topicos")?.remove();
+  const s=document.createElement("section");s.id="topicos";
+  s.innerHTML=`<h2>Tópicos</h2><p class="lead">O programa agrupa as frases em temas automaticamente. Cada tópico é definido pelas palavras que mais pesam nele; dar um nome ao tema é com você.</p>
+  <div class="row" style="margin:0 0 16px"><label for="tp-k" style="margin:0">Número de tópicos</label><select id="tp-k" style="font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff">${[2,3,4,5,6].map(n=>`<option${n==3?" selected":""}>${n}</option>`).join("")}</select><button id="tp-go">Gerar tópicos</button></div><div id="tp-out"></div>`;
+  $("#serie").closest("section").after(s);
+  $("#tp-go").onclick=gerar;$("#tp-k").onchange=gerar;gerar();
+};
+})();
+
+</script>
+</body>
+</html>
